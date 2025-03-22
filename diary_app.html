@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日々の記録</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .diary-entry {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center; /* 縦の中央寄せ */
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .todo-header {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        .todo-text {
+            flex-grow: 1; /* タスク名を残りのスペースに広げる */
+            margin-left: 10px; /* チェックボックスとタスク名の間に適度なスペースを付加 */
+            text-align: left; /* タスク名を左寄せ */
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>日々の記録</h1>
+
+    <!-- タブナビゲーション -->
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="diary-tab" data-toggle="tab" href="#diary" role="tab" aria-controls="diary"
+               aria-selected="true">日記</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="todo-tab" data-toggle="tab" href="#todo" role="tab" aria-controls="todo"
+               aria-selected="false">ToDoリスト</a>
+        </li>
+    </ul>
+
+    <!-- タブ内容 -->
+    <div class="tab-content" id="myTabContent">
+        <div class="tab-pane fade show active" id="diary" role="tabpanel" aria-labelledby="diary-tab">
+            <form id="diaryForm">
+                <div class="form-group">
+                    <label for="date">日付:</label>
+                    <input type="date" class="form-control" id="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="weather">天気:</label>
+                    <select class="form-control" id="weather">
+                        <option>晴れ</option>
+                        <option>曇り</option>
+                        <option>雨</option>
+                        <option>雪</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="mood">感情:</label>
+                    <select class="form-control" id="mood">
+                        <option value="😊: 幸せ">😊: 幸せ</option>
+                        <option value="😢: 悲しい">😢: 悲しい</option>
+                        <option value="😡: 怒り">😡: 怒り</option>
+                        <option value="😐: 普通">😐: 普通</option>
+                        <option value="😅: 笑い">😅: 笑い</option>
+                        <option value="😌: ほっとした">😌: ほっとした</option>
+                        <option value="🤔: 考え中">🤔: 考え中</option>
+                        <option value="😳: 驚き">😳: 驚き</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="entry">日記の記録:</label>
+                    <textarea class="form-control" id="entry" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">記録を保存</button>
+                <button id="cancelEditButton" class="btn btn-secondary" style="display: none;">キャンセル</button>
+            </form>
+
+            <button id="deleteAllButton" class="btn btn-danger mt-3">すべての記録を削除</button>
+            <div id="message" class="mt-3"></div>
+
+            <h2 class="mt-5">保存した記録</h2>
+            <div id="diaryEntries"></div>
+        </div>
+
+        <div class="tab-pane fade" id="todo" role="tabpanel" aria-labelledby="todo-tab">
+            <form id="todoForm">
+                <div class="form-group">
+                    <label for="todoDate">日付:</label>
+                    <input type="date" class="form-control" id="todoDate" value="${new Date().toISOString().substring(0, 10)}" required>
+                </div>
+                <div class="form-group">
+                    <label for="todoType">タスクの種類:</label>
+                    <input type="text" class="form-control" id="todoType" placeholder="タスクの種類を入力" required>
+                </div>
+                <div class="form-group">
+                    <label for="todoInput">タスク:</label>
+                    <input type="text" class="form-control" id="todoInput" placeholder="タスクを追加する" required>
+                </div>
+                <button type="submit" class="btn btn-success">追加</button>
+            </form>
+            <div id="todoList"></div>
+            <button id="deleteAllTodosButton" class="btn btn-danger mt-3">すべてのタスクを削除</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script>
+    // 日記アプリ機能
+    document.getElementById('diaryForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (isEditing) return; // 修正中であれば保存を無効に
+
+        saveDiaryEntry();
+    });
+
+    let isEditing = false;
+    let editingIndex = null;
+
+    function saveDiaryEntry() {
+        const date = document.getElementById('date').value;
+        const weather = document.getElementById('weather').value;
+        const mood = document.getElementById('mood').value.split(': ')[0];
+        const entry = document.getElementById('entry').value;
+
+        const diaryEntry = { date, weather, mood, entry };
+
+        let entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+        if (isEditing) {
+            entries[editingIndex] = diaryEntry; // 修正の場合、上書き
+        } else {
+            entries.push(diaryEntry); // 新規追加
+        }
+        localStorage.setItem('diaryEntries', JSON.stringify(entries));
+
+        clearDiaryForm();
+        displayEntries(); // 表示を更新
+        document.getElementById('message').innerText = isEditing ? '記録が修正されました！' : '記録が保存されました！';
+    }
+
+    function displayEntries() {
+        const entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+        const diaryEntriesDiv = document.getElementById('diaryEntries');
+        diaryEntriesDiv.innerHTML = '';
+
+        entries.forEach((entry, index) => {
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'diary-entry';
+            entryDiv.innerHTML = `
+                <strong>${entry.date}</strong> <br>
+                天気: ${entry.weather} <br>
+                感情: ${entry.mood} <br>
+                <p>${entry.entry}</p>
+                <button class="btn btn-secondary edit-entry" data-index="${index}">修正</button>
+                <button class="btn btn-danger delete-entry" data-index="${index}">削除</button>
+            `;
+            diaryEntriesDiv.appendChild(entryDiv);
+        });
+
+        const deleteButtons = document.querySelectorAll('.delete-entry');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const index = event.target.getAttribute('data-index');
+                deleteEntry(index);
+            });
+        });
+
+        const editButtons = document.querySelectorAll('.edit-entry');
+        editButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const index = event.target.getAttribute('data-index');
+                editEntry(index);
+            });
+        });
+    }
+
+    function editEntry(index) {
+        let entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+        const entry = entries[index];
+
+        document.getElementById('date').value = entry.date;
+        document.getElementById('weather').value = entry.weather;
+        document.getElementById('mood').value = entry.mood + ': ' + (entry.mood === '😊' ? '幸せ' :
+            entry.mood === '😢' ? '悲しい' :
+            entry.mood === '😡' ? '怒り' :
+            entry.mood === '😐' ? '普通' :
+            entry.mood === '😅' ? '笑い' :
+            entry.mood === '😌' ? 'ほっとした' :
+            entry.mood === '🤔' ? '考え中' :
+            '驚き');
+        document.getElementById('entry').value = entry.entry;
+
+        isEditing = true;
+        editingIndex = index;
+        document.getElementById('cancelEditButton').style.display = 'inline'; //キャンセルボタンを表示
+    }
+
+    function clearDiaryForm() {
+        document.getElementById('diaryForm').reset();
+        isEditing = false;
+        editingIndex = null;
+        document.getElementById('cancelEditButton').style.display = 'none'; //キャンセルボタンを非表示
+    }
+
+    function deleteEntry(index) {
+        let entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+        entries.splice(index, 1);
+        localStorage.setItem('diaryEntries', JSON.stringify(entries));
+        displayEntries();
+    }
+
+    document.getElementById('deleteAllButton').addEventListener('click', function () {
+        const confirmDelete = confirm("すべての記録が削除されます。よろしいですか？");
+        if (confirmDelete) {
+            localStorage.removeItem('diaryEntries');
+            displayEntries();
+            document.getElementById('message').innerText = 'すべての記録が削除されました。';
+        }
+    });
+
+    document.getElementById('cancelEditButton').addEventListener('click', function (event) {
+        event.preventDefault();
+        clearDiaryForm(); //フォームをクリア
+    });
+
+    // ToDoリスト機能
+    document.getElementById('todoForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const todoInput = document.getElementById('todoInput').value;
+        const todoType = document.getElementById('todoType').value;
+        const todoDate = document.getElementById('todoDate').value;
+        addTodoItem(todoInput, todoType, todoDate);
+        document.getElementById('todoInput').value = ''; // 入力フィールドをクリア
+        document.getElementById('todoDate').value = ''; // 日付フィールドをクリア
+        document.getElementById('todoType').value = ''; // タイプフィールドをクリア
+    });
+
+    function addTodoItem(task, type, date) {
+        const todoList = JSON.parse(localStorage.getItem('todoList')) || [];
+        todoList.push({ task, type, date, completed: false }); // 完了状態を追加
+        localStorage.setItem('todoList', JSON.stringify(todoList));
+
+        displayTodoList(); // 表示を更新
+    }
+
+    function displayTodoList() {
+        const todoList = JSON.parse(localStorage.getItem('todoList')) || [];
+        const todoListDiv = document.getElementById('todoList');
+        todoListDiv.innerHTML = ''; // 既存の内容をクリア
+
+        // タスクの種類でグループ化
+        const groupedTodos = todoList.reduce((accumulator, item) => {
+            if (!accumulator[item.date]) {
+                accumulator[item.date] = {};
+            }
+            if (!accumulator[item.date][item.type]) {
+                accumulator[item.date][item.type] = [];
+            }
+            accumulator[item.date][item.type].push(item);
+            return accumulator;
+        }, {});
+
+        for (const date in groupedTodos) {
+            // 日付の見出しを追加
+            const dateHeader = document.createElement('h5');
+            dateHeader.innerText = date;
+            todoListDiv.appendChild(dateHeader);
+
+            for (const type in groupedTodos[date]) {
+                // タスクの種類の見出しを追加
+                const typeHeader = document.createElement('div');
+                typeHeader.className = 'todo-header';
+                typeHeader.innerText = type;
+                todoListDiv.appendChild(typeHeader);
+
+                groupedTodos[date][type].forEach((item, index) => {
+                    const todoItemDiv = document.createElement('div');
+                    todoItemDiv.className = 'todo-item';
+                    todoItemDiv.innerHTML = `
+                        <input type="checkbox" class="todo-checkbox" data-index="${todoList.indexOf(item)}" ${item.completed ? 'checked' : ''}>
+                        <span class="todo-text">${item.task}</span> <!-- タスク名を左寄せ -->
+                        <button class="btn btn-danger delete-todo" data-index="${todoList.indexOf(item)}">削除</button>
+                    `;
+                    todoListDiv.appendChild(todoItemDiv);
+                });
+            }
+        }
+
+        // チェックボックスのイベントリスナーを追加
+        const checkboxButtons = document.querySelectorAll('.todo-checkbox');
+        checkboxButtons.forEach(checkbox => {
+            checkbox.addEventListener('change', (event) => {
+                const index = event.target.getAttribute('data-index');
+                toggleTodoCompletion(index);
+            });
+        });
+
+        const deleteTodoButtons = document.querySelectorAll('.delete-todo');
+        deleteTodoButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const index = event.target.getAttribute('data-index');
+                deleteTodoItem(index);
+            });
+        });
+    }
+
+    function toggleTodoCompletion(index) {
+        const todoList = JSON.parse(localStorage.getItem('todoList')) || [];
+        todoList[index].completed = !todoList[index].completed; // 完了状態をトグル
+        localStorage.setItem('todoList', JSON.stringify(todoList));
+        displayTodoList(); // 再表示
+    }
+
+    function deleteTodoItem(index) {
+        const todoList = JSON.parse(localStorage.getItem('todoList')) || [];
+        todoList.splice(index, 1);
+        localStorage.setItem('todoList', JSON.stringify(todoList));
+        displayTodoList(); // 再表示
+    }
+
+    document.getElementById('deleteAllTodosButton').addEventListener('click', function () {
+        const confirmDelete = confirm("すべてのタスクが削除されます。よろしいですか？");
+        if (confirmDelete) {
+            localStorage.removeItem('todoList');
+            displayTodoList(); // 再表示
+            document.getElementById('message').innerText = 'すべてのタスクが削除されました。';
+        }
+    });
+
+    // ページが読み込まれたときに既存のエントリーとタスクを表示
+    window.onload = function () {
+        displayEntries();
+        displayTodoList();
+    };
+</script>
+</body>
+
+</html>
