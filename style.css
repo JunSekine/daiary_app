@@ -1,0 +1,45 @@
+body {
+    font-family Arial, sans-serif;
+    background-color #f8f9fa;
+    padding 20px;
+}
+
+.container {
+    max-width 800px;
+    background #fff;
+    padding 20px;
+    border-radius 10px;
+    box-shadow 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.nav-tabs .nav-link {
+    color #495057;
+}
+
+.nav-tabs .nav-link.active {
+    background-color #007bff;
+    color white;
+}
+
+.diary-entry, .todo-item {
+    border 1px solid #ddd;
+    padding 10px;
+    margin 10px 0;
+    border-radius 5px;
+    background-color #fff;
+}
+
+.todo-item {
+    display flex;
+    align-items center;
+}
+
+.todo-text {
+    flex-grow 1;
+    margin-left 10px;
+    text-align left;
+}
+
+button {
+    margin-top 10px;
+}
