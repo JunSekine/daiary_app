@@ -1,120 +1,128 @@
+(function() {
+// DOMèª­ã¿è¾¼ã¿å¾Œã«ã‚¤ãƒ™ãƒ³ãƒˆãƒªã‚¹ãƒŠãƒ¼ã‚’è¨­å®š
 document.addEventListener("DOMContentLoaded", function () {
-    // “ú‹L‹@”\
     document.getElementById('diaryForm').addEventListener('submit', function (event) {
         event.preventDefault();
         saveDiaryEntry();
     });
 
-    function saveDiaryEntry() {
-        const date = document.getElementById('date').value;
-        const entry = document.getElementById('entry').value;
-        
-        if (!date || !entry) {
-            alert("“ú•t‚Æ“ú‹L‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢B");
-            return;
+    document.getElementById('deleteAllButton').addEventListener('click', function () {
+        if (confirm("ã™ã¹ã¦ã®æ—¥è¨˜ãŒå‰Šé™¤ã•ã‚Œã¾ã™ã€‚ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿ")) {
+            localStorage.removeItem('diaryEntries');
+            displayEntries();
+            document.getElementById('message').innerText = 'ã™ã¹ã¦ã®æ—¥è¨˜ãŒå‰Šé™¤ã•ã‚Œã¾ã—ãŸã€‚';
         }
-        
-        const diaryEntries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
-        diaryEntries.push({ date, entry });
-        localStorage.setItem('diaryEntries', JSON.stringify(diaryEntries));
-        displayEntries();
-    }
+    });
 
-    function displayEntries() {
-        const diaryEntries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
-        const diaryEntriesDiv = document.getElementById('diaryEntries');
-        diaryEntriesDiv.innerHTML = '';
+    document.getElementById('deleteAllTodosButton').addEventListener('click', function () {
+        if (confirm("ã™ã¹ã¦ã®ã‚¿ã‚¹ã‚¯ãŒå‰Šé™¤ã•ã‚Œã¾ã™ã€‚ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿ")) {
+            localStorage.removeItem('todoList');
+            displayTodoList();
+        }
+    });
 
-        diaryEntries.forEach((entry, index) => {
-            const entryDiv = document.createElement('div');
-            entryDiv.className = 'diary-entry';
-            entryDiv.textContent = `${entry.date}: ${entry.entry}`;
-            diaryEntriesDiv.appendChild(entryDiv);
-        });
-    }
+    // åˆæœŸåŒ–å‡¦ç†
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date').value = today;
+    document.getElementById('todoDate').value = today;
 
     displayEntries();
-
-    // ToDoƒŠƒXƒg‹@”\
-    document.getElementById('todoForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-        addTodoItem();
-    });
-
-    function addTodoItem() {
-        const todoInput = document.getElementById('todoInput').value;
-        if (!todoInput) {
-            alert("ƒ^ƒXƒN‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢B");
-            return;
-        }
-
-        const todoList = JSON.parse(localStorage.getItem('todoList')) || [];
-        todoList.push({ task: todoInput, completed: false });
-        localStorage.setItem('todoList', JSON.stringify(todoList));
-        displayTodoList();
-    }
-
-    function displayTodoList() {
-        const todoList = JSON.parse(localStorage.getItem('todoList')) || [];
-        const todoListDiv = document.getElementById('todoList');
-        todoListDiv.innerHTML = '';
-
-        todoList.forEach((item, index) => {
-            const todoItemDiv = document.createElement('div');
-            todoItemDiv.className = 'todo-item';
-            todoItemDiv.innerHTML = `
-                <input type="checkbox" class="todo-checkbox" data-index="${index}" ${item.completed ? 'checked' : ''}>
-                <span class="todo-text">${item.task}</span>
-                <button class="btn btn-danger delete-todo" data-index="${index}">íœ</button>
-            `;
-            todoListDiv.appendChild(todoItemDiv);
-        });
-
-        document.querySelectorAll('.delete-todo').forEach(button => {
-            button.addEventListener('click', function () {
-                deleteTodoItem(this.getAttribute('data-index'));
-            });
-        });
-    }
-
-    function deleteTodoItem(index) {
-        const todoList = JSON.parse(localStorage.getItem('todoList')) || [];
-        todoList.splice(index, 1);
-        localStorage.setItem('todoList', JSON.stringify(todoList));
-        displayTodoList();
-    }
-
     displayTodoList();
-
-    // ƒf[ƒ^‚ÌƒGƒNƒXƒ|[ƒgEƒCƒ“ƒ|[ƒg
-    document.getElementById('exportData').addEventListener('click', function () {
-        const data = {
-            diaryEntries: JSON.parse(localStorage.getItem('diaryEntries')) || [],
-            todoList: JSON.parse(localStorage.getItem('todoList')) || []
-        };
-        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'backup.json';
-        a.click();
-    });
-
-    document.getElementById('importData').addEventListener('change', function (event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                localStorage.setItem('diaryEntries', JSON.stringify(data.diaryEntries || []));
-                localStorage.setItem('todoList', JSON.stringify(data.todoList || []));
-                displayEntries();
-                displayTodoList();
-            } catch (error) {
-                alert("–³Œø‚Èƒtƒ@ƒCƒ‹‚Å‚·B");
-            }
-        };
-        reader.readAsText(file);
-    });
 });
+
+let isEditing = false;
+let editingIndex = null;
+
+function saveDiaryEntry() {
+    const date = document.getElementById('date').value;
+    const weather = document.getElementById('weather').value;
+    const mood = document.getElementById('mood').value;
+    const entry = document.getElementById('entry').value.trim();
+
+    if (!date || !entry) {
+        alert("æ—¥ä»˜ã¨æ—¥è¨˜ã¯å¿…é ˆã§ã™ã€‚");
+        return;
+    }
+
+    let entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+    const diaryEntry = { date, weather, mood, entry };
+
+    if (isEditing) {
+        entries[editingIndex] = diaryEntry;
+    } else {
+        entries.push(diaryEntry);
+    }
+    localStorage.setItem('diaryEntries', JSON.stringify(entries));
+
+    displayEntries();
+    clearDiaryForm();
+
+    isEditing = false;
+    editingIndex = null;
+
+    document.getElementById('message').innerText = isEditing ? 'æ—¥è¨˜ãŒä¿®æ­£ã•ã‚Œã¾ã—ãŸï¼' : 'æ—¥è¨˜ãŒä¿å­˜ã•ã‚Œã¾ã—ãŸï¼';
+}
+
+function displayEntries() {
+    const entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+    const diaryEntriesDiv = document.getElementById('diaryEntries');
+    diaryEntriesDiv.innerHTML = '';
+
+    entries.forEach((entry, index) => {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'diary-entry';
+        entryDiv.innerHTML = `
+            <strong>${entry.date}</strong> - ${entry.weather} - ${entry.mood}
+            <p>${entry.entry}</p>
+            <button class="btn btn-secondary edit-entry" data-index="${index}">ç·¨é›†</button>
+            <span class="button-space"></span>
+            <button class="btn btn-danger delete-entry" data-index="${index}">å‰Šé™¤</button>
+        `;
+        diaryEntriesDiv.appendChild(entryDiv);
+    });
+
+    document.querySelectorAll('.edit-entry').forEach(button => {
+        button.addEventListener('click', (event) => {
+            editEntry(parseInt(event.target.getAttribute('data-index')));
+        });
+    });
+
+    document.querySelectorAll('.delete-entry').forEach(button => {
+        button.addEventListener('click', (event) => {
+            deleteEntry(parseInt(event.target.getAttribute('data-index')));
+        });
+    });
+}
+
+function editEntry(index) {
+    const entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+    const entry = entries[index];
+
+    document.getElementById('date').value = entry.date;
+    document.getElementById('weather').value = entry.weather;
+
+    // æ„Ÿæƒ…ã®é¸æŠè‚¢ã‚’é©åˆ‡ã«è¨­å®š
+    const moodSelect = document.getElementById('mood');
+    for (let i = 0; i < moodSelect.options.length; i++) {
+        if (moodSelect.options[i].value.includes(entry.mood)) {
+            moodSelect.selectedIndex = i;
+            break;
+        }
+    }
+
+    document.getElementById('entry').value = entry.entry;
+
+    isEditing = true;
+    editingIndex = index;
+}
+
+function deleteEntry(index) {
+    if (confirm("ã“ã®æ—¥è¨˜ã‚’å‰Šé™¤ã—ã¾ã™ã‹ï¼Ÿ")) {
+        let entries = JSON.parse(localStorage.getItem('diaryEntries')) || [];
+        entries.splice(index, 1);
+        localStorage.setItem('diaryEntries', JSON.stringify(entries));
+        displayEntries();
+    }
+}
+
+})();
